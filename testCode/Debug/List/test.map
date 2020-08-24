@@ -1,0 +1,39 @@
+RAM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+step2                                                                             0x0518       2
+end2                                                                              0x051A       2
+left                                                                              0x051C       1
+mid                                                                               0x051D       1
+right                                                                             0x051E       1
+
+EEPROM Allocation [bytes]
+Variable                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+
+Register Allocation
+Variable                                                                          Register  Size
+------------------------------------------------------------------------------------------------
+txdata                                                                            R5           1
+rxdata                                                                            R4           1
+g1                                                                                R6,R7        2
+g2                                                                                R8,R9        2
+step1                                                                             R10,R11      2
+end1                                                                              R12,R13      2
+
+FLASH Allocation [words]
+Function                                                                          Address   Size
+------------------------------------------------------------------------------------------------
+init                                                                              0x000BA     12
+BTinit                                                                            0x000C6     13
+transmit                                                                          0x000D3      6
+dec                                                                               0x000D9     74
+string                                                                            0x00123     30
+vel_f5                                                                            0x00141      9
+adj_end1                                                                          0x0014A     34
+adj_end2                                                                          0x0016C     46
+speed2                                                                            0x001BC     38
+timer1_compa_isr                                                                  0x001E2     23
+usart0_rxc                                                                        0x001F9    114
+usart0_dre                                                                        0x0026B      3
+main                                                                              0x0026E    273
