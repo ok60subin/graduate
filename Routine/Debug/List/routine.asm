@@ -1149,14 +1149,17 @@ _tbl16_G100:
 
 ;GLOBAL REGISTER VARIABLES INITIALIZATION
 __REG_VARS:
-	.DB  0x10,0x27,0x20,0x4E
-	.DB  0x90,0x1,0x64,0x0
+	.DB  0x20,0x4E,0x80,0xBB
+	.DB  0x70,0x17,0xD0,0x7
 	.DB  0x0,0x0
 
 _0x3:
-	.DB  0xC4,0x9
+	.DB  0x78,0x5
 _0x4:
-	.DB  0xC4,0x9
+	.DB  0x78,0x5
+_0x0:
+	.DB  0x31,0x0,0x35,0x0,0x32,0x0,0x33,0x0
+	.DB  0x34,0x0
 
 __GLOBAL_INI_TBL:
 	.DW  0x0A
@@ -1164,12 +1167,32 @@ __GLOBAL_INI_TBL:
 	.DW  __REG_VARS*2
 
 	.DW  0x02
-	.DW  _g1
+	.DW  _sp1
 	.DW  _0x3*2
 
 	.DW  0x02
-	.DW  _g2
+	.DW  _sp2
 	.DW  _0x4*2
+
+	.DW  0x02
+	.DW  _0x2B
+	.DW  _0x0*2
+
+	.DW  0x02
+	.DW  _0x2B+2
+	.DW  _0x0*2+2
+
+	.DW  0x02
+	.DW  _0x2B+4
+	.DW  _0x0*2+4
+
+	.DW  0x02
+	.DW  _0x2B+6
+	.DW  _0x0*2+6
+
+	.DW  0x02
+	.DW  _0x2B+8
+	.DW  _0x0*2+8
 
 _0xFFFFFFFF:
 	.DW  0
@@ -1276,27 +1299,38 @@ __GLOBAL_INI_END:
 ;#define m2_off PORTA|=0x04
 ;#define m3_off PORTA|=0x08
 ;
+;#define m0_t PORTA^=0x01
+;#define m1_t PORTA^=0x02
+;#define m2_t PORTA^=0x04
+;#define m3_t PORTA^=0x08
+;
 ;#define g1_on TIMSK|=0x10
 ;#define g2_on TIMSK|=0x08
 ;
 ;#define g1_off TIMSK&=0xEF
 ;#define g2_off TIMSK&=0xF7
 ;
-;#define forward PORTB|=0x10
-;#define backward PORTB&=0xEF
+;#define forward PORTB|=0x10 //PORTB4=1
+;#define backward PORTB&=0xEF //PORTB4=0
 ;
-;unsigned int PAUSE=10000; //디스펜서까지의 거리
-;unsigned int ENDLINE=20000; //끝까지의 스텝수 저장 상수
-;unsigned int ONE=400; //한 알  스텝 수 저장 상수
-;unsigned int NEXT=100; //약통의 다음칸으로 이동할 스텝수 저장 상수
+;#define buzzer_on  PORTA|=0x10 //PORTA4=1      0001 0000
+;#define buzzer_off  PORTA&=0xEF //PORTA4=0      1110 1111
+;#define buzzer_t PORTA^=0x10
+;
+;unsigned int PAUSE=20000; //디스펜서까지의 거리
+;unsigned int ENDLINE=48000; //끝까지의 스텝수 저장 상수
+;unsigned int ONE=6000; //한 알  스텝 수 저장 상수
+;unsigned int NEXT=2000; //약통의 다음칸으로 이동할 스텝수 저장 상수
 ;
 ;unsigned int step1=0; //디스펜서의 현재 스텝 저장 변수
 ;unsigned int step2=0; //이동모터의 현재 스텝 저장 변수
+;
+;unsigned char start=0;
+;unsigned int where2=0;
 ;unsigned int target=0;
 ;unsigned int position=0; //현재 위치
-;unsigned char fin=0;
 ;
-;unsigned char txdata=0; //시리얼 통신의 송신데이터 저장 변수
+;unsigned int txdata=0; //시리얼 통신의 송신데이터 저장 변수
 ;unsigned char rxdata=0; //시리얼 통신의 수신데이터 저장 변수
 ;unsigned char pill0[3]={0,0,0}; //[현재 몇 알 줬는지, 한번에 몇 알, 하루에 몇 번] 순으로 저장
 ;unsigned char pill1[3]={0,0,0};
@@ -1304,385 +1338,365 @@ __GLOBAL_INI_END:
 ;unsigned char unit[3]={0,0,0}; //[약 종류, 한 번에 몇 알, 하루에 몇 번] 순으로 저장
 ;unsigned char index=0;
 ;
-;unsigned int g1=2500;  //speed
+;unsigned int sp1=1400;
 
 	.DSEG
-;unsigned int g2=2500;
+;unsigned int sp2=1400;
 ;
-;
-;interrupt [TIM1_COMPA] void timer1_compa_isr(void)
-; 0000 0030 {
+;void init(){
+; 0000 0039 void init(){
 
 	.CSEG
-_timer1_compa_isr:
-; .FSTART _timer1_compa_isr
-	ST   -Y,R30
-	ST   -Y,R31
-	IN   R30,SREG
-	ST   -Y,R30
-; 0000 0031     step1++;
-	MOVW R30,R12
-	ADIW R30,1
-	MOVW R12,R30
-; 0000 0032     if(step1==ONE)
-	__CPWRR 8,9,12,13
-	BRNE _0x5
-; 0000 0033     {
-; 0000 0034         m0_off;
-	SBI  0x1B,0
-; 0000 0035         m1_off;
-	SBI  0x1B,1
-; 0000 0036         m2_off;
-	SBI  0x1B,2
-; 0000 0037         g1_off; //disable ocie1a
-	IN   R30,0x37
-	ANDI R30,0xEF
-	OUT  0x37,R30
-; 0000 0038         step1=0;
-	CLR  R12
-	CLR  R13
-; 0000 0039         fin=1;
-	LDI  R30,LOW(1)
-	STS  _fin,R30
-; 0000 003A     }
-; 0000 003B }
-_0x5:
-	LD   R30,Y+
-	OUT  SREG,R30
-	LD   R31,Y+
-	LD   R30,Y+
-	RETI
-; .FEND
-;
-;interrupt [TIM1_COMPB] void timer1_compb_isr(void)
-; 0000 003E {
-_timer1_compb_isr:
-; .FSTART _timer1_compb_isr
-	ST   -Y,R26
-	ST   -Y,R27
-	ST   -Y,R30
-	ST   -Y,R31
-	IN   R30,SREG
-	ST   -Y,R30
-; 0000 003F     step2++;
-	LDI  R26,LOW(_step2)
-	LDI  R27,HIGH(_step2)
-	LD   R30,X+
-	LD   R31,X+
-	ADIW R30,1
-	ST   -X,R31
-	ST   -X,R30
-; 0000 0040     if(step2==target)
-	LDS  R30,_target
-	LDS  R31,_target+1
-	LDS  R26,_step2
-	LDS  R27,_step2+1
-	CP   R30,R26
-	CPC  R31,R27
-	BRNE _0x6
-; 0000 0041     {
-; 0000 0042         m3_off;
-	SBI  0x1B,3
-; 0000 0043         g2_off; //disable ocie1b
-	IN   R30,0x37
-	ANDI R30,0XF7
-	OUT  0x37,R30
-; 0000 0044         position+=step2;
-	LDS  R30,_step2
-	LDS  R31,_step2+1
-	LDS  R26,_position
-	LDS  R27,_position+1
-	ADD  R30,R26
-	ADC  R31,R27
-	STS  _position,R30
-	STS  _position+1,R31
-; 0000 0045         step2=0;
-	LDI  R30,LOW(0)
-	STS  _step2,R30
-	STS  _step2+1,R30
-; 0000 0046         fin=1;
-	LDI  R30,LOW(1)
-	STS  _fin,R30
-; 0000 0047     }
-; 0000 0048 }
-_0x6:
-	LD   R30,Y+
-	OUT  SREG,R30
-	LD   R31,Y+
-	LD   R30,Y+
-	LD   R27,Y+
-	LD   R26,Y+
-	RETI
-; .FEND
-;void vel_f5()
-; 0000 004A {
-_vel_f5:
-; .FSTART _vel_f5
-; 0000 004B     OCR1AH=(g1>>8);
-	LDS  R30,_g1+1
-	ANDI R31,HIGH(0x0)
-	OUT  0x2B,R30
-; 0000 004C     OCR1AL=g1;
-	LDS  R30,_g1
-	OUT  0x2A,R30
-; 0000 004D     OCR1BH=(g2>>8);
-	LDS  R30,_g2+1
-	ANDI R31,HIGH(0x0)
-	OUT  0x29,R30
-; 0000 004E     OCR1BL=g2;
-	LDS  R30,_g2
-	OUT  0x28,R30
-; 0000 004F }
-	RET
-; .FEND
-;void transmit() //after setting txdata
-; 0000 0051 {
-_transmit:
-; .FSTART _transmit
-; 0000 0052      UCSR0B |= 0x20;
-	SBI  0xA,5
-; 0000 0053      delay_ms(30); //300
-	LDI  R26,LOW(30)
-	LDI  R27,0
-	CALL _delay_ms
-; 0000 0054 }
-	RET
-; .FEND
-;void beep(){
-; 0000 0055 void beep(){
-_beep:
-; .FSTART _beep
-; 0000 0056      //buzzer on
-; 0000 0057     delay_ms(300);
-	LDI  R26,LOW(300)
-	LDI  R27,HIGH(300)
-	CALL _delay_ms
-; 0000 0058      //buzzer off
-; 0000 0059      txdata='e';
-	LDI  R30,LOW(101)
-	STS  _txdata,R30
-; 0000 005A      transmit();
-	RCALL _transmit
-; 0000 005B }
-	RET
-; .FEND
-;void init(){
-; 0000 005C void init(){
 _init:
 ; .FSTART _init
-; 0000 005D     unsigned char i;
-; 0000 005E     txdata=0;
+; 0000 003A     unsigned char i;
+; 0000 003B     txdata=0;
 	ST   -Y,R17
 ;	i -> R17
 	LDI  R30,LOW(0)
 	STS  _txdata,R30
-; 0000 005F     rxdata=0;
+	STS  _txdata+1,R30
+; 0000 003C     rxdata=0;
 	STS  _rxdata,R30
-; 0000 0060     step1=0;
+; 0000 003D     step1=0;
 	CLR  R12
 	CLR  R13
-; 0000 0061     step2=0;
+; 0000 003E     step2=0;
 	STS  _step2,R30
 	STS  _step2+1,R30
-; 0000 0062     for(i=0; i<3; i++)
+; 0000 003F     m0_off;
+	SBI  0x1B,0
+; 0000 0040     m1_off;
+	SBI  0x1B,1
+; 0000 0041     m2_off;
+	SBI  0x1B,2
+; 0000 0042     m3_off;
+	SBI  0x1B,3
+; 0000 0043     g1_off;
+	IN   R30,0x37
+	ANDI R30,0xEF
+	OUT  0x37,R30
+; 0000 0044     g2_off;
+	IN   R30,0x37
+	ANDI R30,0XF7
+	OUT  0x37,R30
+; 0000 0045     index=0;
+	LDI  R30,LOW(0)
+	STS  _index,R30
+; 0000 0046     for(i=0; i<3; i++)
 	LDI  R17,LOW(0)
-_0x8:
+_0x6:
 	CPI  R17,3
-	BRSH _0x9
-; 0000 0063     {
-; 0000 0064         pill0[i]=0;
+	BRSH _0x7
+; 0000 0047     {
+; 0000 0048         pill0[i]=0;
 	MOV  R30,R17
 	LDI  R31,0
 	SUBI R30,LOW(-_pill0)
 	SBCI R31,HIGH(-_pill0)
 	LDI  R26,LOW(0)
 	STD  Z+0,R26
-; 0000 0065         pill1[i]=0;
+; 0000 0049         pill1[i]=0;
 	MOV  R30,R17
 	LDI  R31,0
 	SUBI R30,LOW(-_pill1)
 	SBCI R31,HIGH(-_pill1)
 	STD  Z+0,R26
-; 0000 0066         pill2[i]=0;
+; 0000 004A         pill2[i]=0;
 	MOV  R30,R17
 	LDI  R31,0
 	SUBI R30,LOW(-_pill2)
 	SBCI R31,HIGH(-_pill2)
 	STD  Z+0,R26
-; 0000 0067     }
+; 0000 004B     }
 	SUBI R17,-1
-	RJMP _0x8
-_0x9:
-; 0000 0068 }
+	RJMP _0x6
+_0x7:
+; 0000 004C }
 	LD   R17,Y+
 	RET
 ; .FEND
-;void motor(char num)
-; 0000 006A {
-_motor:
-; .FSTART _motor
-; 0000 006B     fin=0;
-	ST   -Y,R26
-;	num -> Y+0
+;void BTinit(void)
+; 0000 004E {
+_BTinit:
+; .FSTART _BTinit
+; 0000 004F     UCSR0A=0x00;
 	LDI  R30,LOW(0)
-	STS  _fin,R30
-; 0000 006C     switch(num)
-	LD   R30,Y
+	OUT  0xB,R30
+; 0000 0050     UCSR0B=0x98;
+	LDI  R30,LOW(152)
+	OUT  0xA,R30
+; 0000 0051     UCSR0C=0x06;
+	LDI  R30,LOW(6)
+	STS  149,R30
+; 0000 0052     UBRR0H=0;
+	LDI  R30,LOW(0)
+	STS  144,R30
+; 0000 0053     UBRR0L=103;
+	LDI  R30,LOW(103)
+	OUT  0x9,R30
+; 0000 0054 }
+	RET
+; .FEND
+;
+;void transmit() //after setting txdata
+; 0000 0057 {
+_transmit:
+; .FSTART _transmit
+; 0000 0058      UCSR0B |= 0x20;
+	SBI  0xA,5
+; 0000 0059      delay_ms(10);
+	LDI  R26,LOW(10)
+	LDI  R27,0
+	CALL _delay_ms
+; 0000 005A }
+	RET
+; .FEND
+;void string(char *str)
+; 0000 005C {
+_string:
+; .FSTART _string
+; 0000 005D     unsigned int i=0;
+; 0000 005E     for(i=0; str[i]; i++)
+	ST   -Y,R27
+	ST   -Y,R26
+	ST   -Y,R17
+	ST   -Y,R16
+;	*str -> Y+2
+;	i -> R16,R17
+	__GETWRN 16,17,0
+	__GETWRN 16,17,0
+_0x9:
+	CALL SUBOPT_0x0
+	CPI  R30,0
+	BREQ _0xA
+; 0000 005F     {
+; 0000 0060         txdata=str[i];
+	CALL SUBOPT_0x0
 	LDI  R31,0
-; 0000 006D     {
-; 0000 006E         case 0:
-	SBIW R30,0
-	BRNE _0xD
-; 0000 006F             m0_on;
+	STS  _txdata,R30
+	STS  _txdata+1,R31
+; 0000 0061         transmit();
+	RCALL _transmit
+; 0000 0062         delay_ms(10);
+	LDI  R26,LOW(10)
+	LDI  R27,0
+	CALL _delay_ms
+; 0000 0063     }
+	__ADDWRN 16,17,1
+	RJMP _0x9
+_0xA:
+; 0000 0064 }
+	LDD  R17,Y+1
+	LDD  R16,Y+0
+	ADIW R28,4
+	RET
+; .FEND
+;void beep(unsigned int n){
+; 0000 0065 void beep(unsigned int n){
+_beep:
+; .FSTART _beep
+; 0000 0066     buzzer_on;
+	ST   -Y,R27
+	ST   -Y,R26
+;	n -> Y+0
+	SBI  0x1B,4
+; 0000 0067     delay_ms(n);
+	LD   R26,Y
+	LDD  R27,Y+1
+	CALL _delay_ms
+; 0000 0068     buzzer_off;
+	CBI  0x1B,4
+; 0000 0069 }
+	RJMP _0x2060002
+; .FEND
+;void vel_f5()
+; 0000 006B {
+_vel_f5:
+; .FSTART _vel_f5
+; 0000 006C     OCR1AH=(sp1>>8);
+	LDS  R30,_sp1+1
+	ANDI R31,HIGH(0x0)
+	OUT  0x2B,R30
+; 0000 006D     OCR1AL=sp1;
+	LDS  R30,_sp1
+	OUT  0x2A,R30
+; 0000 006E     OCR1BH=(sp2>>8);
+	LDS  R30,_sp2+1
+	ANDI R31,HIGH(0x0)
+	OUT  0x29,R30
+; 0000 006F     OCR1BL=sp2;
+	LDS  R30,_sp2
+	OUT  0x28,R30
+; 0000 0070 }
+	RET
+; .FEND
+;
+;void wait(unsigned int t)
+; 0000 0073 {
+_wait:
+; .FSTART _wait
+; 0000 0074     t*=3;
+	ST   -Y,R27
+	ST   -Y,R26
+;	t -> Y+0
+	LD   R26,Y
+	LDD  R27,Y+1
+	LDI  R30,LOW(3)
+	CALL __MULB1W2U
+	ST   Y,R30
+	STD  Y+1,R31
+; 0000 0075     t/=4;
+	CALL __LSRW2
+	ST   Y,R30
+	STD  Y+1,R31
+; 0000 0076     delay_ms(t);
+	LD   R26,Y
+	LDD  R27,Y+1
+	CALL _delay_ms
+; 0000 0077 }
+	RJMP _0x2060002
+; .FEND
+;void motor0()
+; 0000 0079 {
+_motor0:
+; .FSTART _motor0
+; 0000 007A     m0_on;
 	CBI  0x1B,0
-; 0000 0070             g1_on;
+; 0000 007B     g1_on;
 	IN   R30,0x37
 	ORI  R30,0x10
-	RJMP _0x4A
-; 0000 0071             break;
-; 0000 0072         case 1:
-_0xD:
-	CPI  R30,LOW(0x1)
-	LDI  R26,HIGH(0x1)
-	CPC  R31,R26
-	BRNE _0xE
-; 0000 0073             m1_on;
+	RJMP _0x2060003
+; 0000 007C }
+; .FEND
+;void motor1()
+; 0000 007E {
+_motor1:
+; .FSTART _motor1
+; 0000 007F     m1_on;
 	CBI  0x1B,1
-; 0000 0074             g1_on;
+; 0000 0080     g1_on;
 	IN   R30,0x37
 	ORI  R30,0x10
-	RJMP _0x4A
-; 0000 0075             break;
-; 0000 0076         case 2:
-_0xE:
-	CPI  R30,LOW(0x2)
-	LDI  R26,HIGH(0x2)
-	CPC  R31,R26
-	BRNE _0xF
-; 0000 0077             m2_on;
+	RJMP _0x2060003
+; 0000 0081 }
+; .FEND
+;void motor2()
+; 0000 0083 {
+_motor2:
+; .FSTART _motor2
+; 0000 0084     m2_on;
 	CBI  0x1B,2
-; 0000 0078             g1_on;
+; 0000 0085     g1_on;
 	IN   R30,0x37
 	ORI  R30,0x10
-	RJMP _0x4A
-; 0000 0079             break;
-; 0000 007A         case 3:
-_0xF:
-	CPI  R30,LOW(0x3)
-	LDI  R26,HIGH(0x3)
-	CPC  R31,R26
-	BRNE _0xC
-; 0000 007B             m3_on;
+	RJMP _0x2060003
+; 0000 0086 
+; 0000 0087 }
+; .FEND
+;void motor3()
+; 0000 0089 {
+_motor3:
+; .FSTART _motor3
+; 0000 008A     m3_on;
 	CBI  0x1B,3
-; 0000 007C             g2_on;
+; 0000 008B     g2_on;
 	IN   R30,0x37
 	ORI  R30,8
-_0x4A:
+_0x2060003:
 	OUT  0x37,R30
-; 0000 007D             break;
-; 0000 007E     }
-_0xC:
-; 0000 007F }
-	RJMP _0x2060001
+; 0000 008C }
+	RET
 ; .FEND
 ;void give0() //timer1a
-; 0000 0081 {
+; 0000 008E {
 _give0:
 ; .FSTART _give0
-; 0000 0082     motor(0);
-	LDI  R26,LOW(0)
-	RCALL _motor
-; 0000 0083     for(pill0[0]=0;pill0[0]<=pill0[1];pill0[0]++)      //[한번에 먹는 약만큼]
+; 0000 008F     for(pill0[0]=0;pill0[0]<pill0[1];pill0[0]++)      //[한번에 먹는 약만큼]
 	LDI  R30,LOW(0)
 	STS  _pill0,R30
-_0x12:
+_0xC:
 	__GETB1MN _pill0,1
 	LDS  R26,_pill0
-	CP   R30,R26
-	BRLO _0x13
-; 0000 0084     {
-; 0000 0085         while(fin==0);  //스텝수에 도달할 때까지 delay
-_0x14:
-	LDS  R30,_fin
-	CPI  R30,0
-	BREQ _0x14
-; 0000 0086     }
+	CP   R26,R30
+	BRSH _0xD
+; 0000 0090     {
+; 0000 0091         motor0();
+	RCALL _motor0
+; 0000 0092         wait(ONE);
+	MOVW R26,R8
+	RCALL _wait
+; 0000 0093     }
 	LDS  R30,_pill0
 	SUBI R30,-LOW(1)
 	STS  _pill0,R30
-	RJMP _0x12
-_0x13:
-; 0000 0087 }
+	RJMP _0xC
+_0xD:
+; 0000 0094 }
 	RET
 ; .FEND
 ;
 ;void give1()
-; 0000 008A {
+; 0000 0097 {
 _give1:
 ; .FSTART _give1
-; 0000 008B     motor(1);
-	LDI  R26,LOW(1)
-	RCALL _motor
-; 0000 008C     for(pill1[0]=0;pill1[0]<=pill1[1];pill1[0]++)
+; 0000 0098     for(pill1[0]=0;pill1[0]<pill1[1];pill1[0]++)
 	LDI  R30,LOW(0)
 	STS  _pill1,R30
-_0x18:
+_0xF:
 	__GETB1MN _pill1,1
 	LDS  R26,_pill1
-	CP   R30,R26
-	BRLO _0x19
-; 0000 008D     {
-; 0000 008E         while(fin==0);
-_0x1A:
-	LDS  R30,_fin
-	CPI  R30,0
-	BREQ _0x1A
-; 0000 008F     }
+	CP   R26,R30
+	BRSH _0x10
+; 0000 0099     {
+; 0000 009A        motor1();
+	RCALL _motor1
+; 0000 009B        wait(ONE);
+	MOVW R26,R8
+	RCALL _wait
+; 0000 009C     }
 	LDS  R30,_pill1
 	SUBI R30,-LOW(1)
 	STS  _pill1,R30
-	RJMP _0x18
-_0x19:
-; 0000 0090 }
+	RJMP _0xF
+_0x10:
+; 0000 009D }
 	RET
 ; .FEND
 ;
 ;void give2()
-; 0000 0093 {
+; 0000 00A0 {
 _give2:
 ; .FSTART _give2
-; 0000 0094     motor(2);
-	LDI  R26,LOW(2)
-	RCALL _motor
-; 0000 0095     for(pill2[0]=0;pill2[0]<=pill2[1];pill2[0]++)
+; 0000 00A1     for(pill2[0]=0;pill2[0]<pill2[1];pill2[0]++)
 	LDI  R30,LOW(0)
 	STS  _pill2,R30
-_0x1E:
+_0x12:
 	__GETB1MN _pill2,1
 	LDS  R26,_pill2
-	CP   R30,R26
-	BRLO _0x1F
-; 0000 0096     {
-; 0000 0097         while(fin==0);
-_0x20:
-	LDS  R30,_fin
-	CPI  R30,0
-	BREQ _0x20
-; 0000 0098     }
+	CP   R26,R30
+	BRSH _0x13
+; 0000 00A2     {
+; 0000 00A3          motor2();
+	RCALL _motor2
+; 0000 00A4          wait(ONE);
+	MOVW R26,R8
+	RCALL _wait
+; 0000 00A5     }
 	LDS  R30,_pill2
 	SUBI R30,-LOW(1)
 	STS  _pill2,R30
-	RJMP _0x1E
-_0x1F:
-; 0000 0099 }
+	RJMP _0x12
+_0x13:
+; 0000 00A6 }
 	RET
 ; .FEND
 ;
-;void go(int t)
-; 0000 009C {
+;void go(unsigned int t)
+; 0000 00A9 {
 _go:
 ; .FSTART _go
-; 0000 009D     target=t;
+; 0000 00AA     target=t;
 	ST   -Y,R27
 	ST   -Y,R26
 ;	t -> Y+0
@@ -1690,143 +1704,132 @@ _go:
 	LDD  R31,Y+1
 	STS  _target,R30
 	STS  _target+1,R31
-; 0000 009E     motor(3);
-	LDI  R26,LOW(3)
-	RCALL _motor
-; 0000 009F     while(fin==0);
-_0x23:
-	LDS  R30,_fin
-	CPI  R30,0
-	BREQ _0x23
-; 0000 00A0 }
+; 0000 00AB     motor3();
+	RCALL _motor3
+; 0000 00AC     wait(t);
+	LD   R26,Y
+	LDD  R27,Y+1
+	RCALL _wait
+; 0000 00AD }
+_0x2060002:
 	ADIW R28,2
 	RET
 ; .FEND
 ;
-;
 ;char str2int(char str){ //시리얼 통신의 char data 변환
-; 0000 00A3 char str2int(char str){
+; 0000 00AF char str2int(char str){
 _str2int:
 ; .FSTART _str2int
-; 0000 00A4     if(str=='1') return 1;
+; 0000 00B0     if(str=='1') return 1;
 	ST   -Y,R26
 ;	str -> Y+0
 	LD   R26,Y
 	CPI  R26,LOW(0x31)
-	BRNE _0x26
+	BRNE _0x14
 	LDI  R30,LOW(1)
 	RJMP _0x2060001
-; 0000 00A5     else if(str=='2') return 2;
-_0x26:
+; 0000 00B1     else if(str=='2') return 2;
+_0x14:
 	LD   R26,Y
 	CPI  R26,LOW(0x32)
-	BRNE _0x28
+	BRNE _0x16
 	LDI  R30,LOW(2)
 	RJMP _0x2060001
-; 0000 00A6     else if(str=='3') return 3;
-_0x28:
+; 0000 00B2     else if(str=='3') return 3;
+_0x16:
 	LD   R26,Y
 	CPI  R26,LOW(0x33)
-	BRNE _0x2A
+	BRNE _0x18
 	LDI  R30,LOW(3)
-; 0000 00A7 }
-_0x2A:
+	RJMP _0x2060001
+; 0000 00B3     else if(str=='0') return 0;
+_0x18:
+	LD   R26,Y
+	CPI  R26,LOW(0x30)
+	BRNE _0x1A
+	LDI  R30,LOW(0)
+; 0000 00B4 }
+_0x1A:
 _0x2060001:
 	ADIW R28,1
 	RET
 ; .FEND
 ;
-;void BTinit(void)
-; 0000 00AA {
-_BTinit:
-; .FSTART _BTinit
-; 0000 00AB     UCSR0A=0x00;
-	LDI  R30,LOW(0)
-	OUT  0xB,R30
-; 0000 00AC     UCSR0B=0x98;
-	LDI  R30,LOW(152)
-	OUT  0xA,R30
-; 0000 00AD     UCSR0C=0x06;
-	LDI  R30,LOW(6)
-	STS  149,R30
-; 0000 00AE     UBRR0H=0;
-	LDI  R30,LOW(0)
-	STS  144,R30
-; 0000 00AF     UBRR0L=103;
-	LDI  R30,LOW(103)
-	OUT  0x9,R30
-; 0000 00B0 }
-	RET
-; .FEND
-;
 ;void run(){
-; 0000 00B2 void run(){
+; 0000 00B6 void run(){
 _run:
 ; .FSTART _run
-; 0000 00B3     char days, meals;
-; 0000 00B4     forward;
+; 0000 00B7     unsigned char days=0;
+; 0000 00B8     unsigned char meals=1;
+; 0000 00B9     forward;
 	ST   -Y,R17
 	ST   -Y,R16
 ;	days -> R17
 ;	meals -> R16
+	LDI  R17,0
+	LDI  R16,1
 	SBI  0x18,4
-; 0000 00B5     go(PAUSE);
+; 0000 00BA     go(PAUSE);
 	MOVW R26,R4
 	RCALL _go
-; 0000 00B6 
-; 0000 00B7     for(days=0; days<2;days++)//약을 며칠 복용하는지에 따라 다르게 수행
+; 0000 00BB    for(days=0; days<2;days++)//약을 며칠 복용하는지에 따라 다르게 수행
 	LDI  R17,LOW(0)
-_0x2C:
+_0x1C:
 	CPI  R17,2
-	BRSH _0x2D
-; 0000 00B8     {
-; 0000 00B9         pill0[0]=0; //날짜에 따라 주는 약 개수 초기화
-	LDI  R30,LOW(0)
-	STS  _pill0,R30
-; 0000 00BA         pill1[0]=0;
-	STS  _pill1,R30
-; 0000 00BB         pill2[0]=0;
-	STS  _pill2,R30
-; 0000 00BC         for(meals=1; meals<=3; meals++) //아침,점심,저녁 약을 [하루 복용수]에 맞게
+	BRSH _0x1D
+; 0000 00BC     {
+; 0000 00BD         for(meals=1; meals<=3; meals++) //아침,점심,저녁 약을 [하루 복용수]에 맞게
 	LDI  R16,LOW(1)
-_0x2F:
+_0x1F:
 	CPI  R16,4
-	BRSH _0x30
-; 0000 00BD         {
-; 0000 00BE             if (meals<=pill0[2]) give0();  //하루에 몇번 넣었는지가 [하루 복용횟수] 보다 적거나 같을 경우 실행
+	BRSH _0x20
+; 0000 00BE         {
+; 0000 00BF             if (meals<=pill0[2]) give0();  //하루에 몇번 넣었는지가 [하루 복용횟수] 보다 적거나 같을 경우 실행
 	__GETB1MN _pill0,2
 	CP   R30,R16
-	BRLO _0x31
+	BRLO _0x21
 	RCALL _give0
-; 0000 00BF             if (meals<=pill1[2]) give1();
-_0x31:
+; 0000 00C0             if (meals<=pill1[2]) give1();
+_0x21:
 	__GETB1MN _pill1,2
 	CP   R30,R16
-	BRLO _0x32
+	BRLO _0x22
 	RCALL _give1
-; 0000 00C0             if (meals<=pill2[2]) give2();
-_0x32:
+; 0000 00C1             if (meals<=pill2[2]) give2();
+_0x22:
 	__GETB1MN _pill2,2
 	CP   R30,R16
-	BRLO _0x33
+	BRLO _0x23
 	RCALL _give2
-; 0000 00C1             forward;
-_0x33:
+; 0000 00C2             forward;
+_0x23:
 	SBI  0x18,4
-; 0000 00C2             go(NEXT); //다음칸으로 이동
+; 0000 00C3             beep(500);
+	LDI  R26,LOW(500)
+	LDI  R27,HIGH(500)
+	RCALL _beep
+; 0000 00C4             go(NEXT); //다음칸으로 이동
 	MOVW R26,R10
 	RCALL _go
-; 0000 00C3         }
+; 0000 00C5         }
 	SUBI R16,-1
-	RJMP _0x2F
-_0x30:
-; 0000 00C4     }
+	RJMP _0x1F
+_0x20:
+; 0000 00C6         delay_ms(100);
+	LDI  R26,LOW(100)
+	LDI  R27,0
+	CALL _delay_ms
+; 0000 00C7         beep(500);
+	LDI  R26,LOW(500)
+	LDI  R27,HIGH(500)
+	RCALL _beep
+; 0000 00C8     }
 	SUBI R17,-1
-	RJMP _0x2C
-_0x2D:
-; 0000 00C5     forward;
+	RJMP _0x1C
+_0x1D:
+; 0000 00C9     forward;
 	SBI  0x18,4
-; 0000 00C6     go(ENDLINE-position);
+; 0000 00CA     go(ENDLINE-position);
 	LDS  R26,_position
 	LDS  R27,_position+1
 	MOVW R30,R6
@@ -1834,26 +1837,24 @@ _0x2D:
 	SBC  R31,R27
 	MOVW R26,R30
 	RCALL _go
-; 0000 00C7     beep();
-	RCALL _beep
-; 0000 00C8     delay_ms(1000);
-	LDI  R26,LOW(1000)
-	LDI  R27,HIGH(1000)
-	CALL _delay_ms
-; 0000 00C9     backward;
+; 0000 00CB 
+; 0000 00CC     backward;
 	CBI  0x18,4
-; 0000 00CA     go(ENDLINE); //back to start point
+; 0000 00CD     go(ENDLINE); //back to start point
 	MOVW R26,R6
 	RCALL _go
-; 0000 00CB 
-; 0000 00CC }
+; 0000 00CE     start=0;
+	LDI  R30,LOW(0)
+	STS  _start,R30
+; 0000 00CF 
+; 0000 00D0 }
 	LD   R16,Y+
 	LD   R17,Y+
 	RET
 ; .FEND
 ;
 ;interrupt [USART0_RXC] void usart0_rxc(void) //수신
-; 0000 00CF {
+; 0000 00D3 {
 _usart0_rxc:
 ; .FSTART _usart0_rxc
 	ST   -Y,R0
@@ -1869,127 +1870,201 @@ _usart0_rxc:
 	ST   -Y,R31
 	IN   R30,SREG
 	ST   -Y,R30
-; 0000 00D0     rxdata=UDR0;
+; 0000 00D4     rxdata=UDR0;
 	IN   R30,0xC
 	STS  _rxdata,R30
-; 0000 00D1     //UCSR0B |= 0x20;
-; 0000 00D2     //UDRE=1 USCR0B = 0b10111000 = 송신허용
-; 0000 00D3 
-; 0000 00D4     if(rxdata=='s')
-	LDS  R26,_rxdata
-	CPI  R26,LOW(0x73)
-	BRNE _0x34
-; 0000 00D5     {
-; 0000 00D6         init();
-	RCALL _init
-; 0000 00D7         index=0;
-	LDI  R30,LOW(0)
-	STS  _index,R30
-; 0000 00D8     }
-; 0000 00D9     else if(rxdata=='e')
-	RJMP _0x35
-_0x34:
-	LDS  R26,_rxdata
-	CPI  R26,LOW(0x65)
-	BRNE _0x36
-; 0000 00DA     {
-; 0000 00DB         run();
-	RCALL _run
-; 0000 00DC     }
-; 0000 00DD     else if(rxdata=='a' || rxdata=='b' || rxdata=='c')
-	RJMP _0x37
-_0x36:
-	LDS  R26,_rxdata
-	CPI  R26,LOW(0x61)
-	BREQ _0x39
-	CPI  R26,LOW(0x62)
-	BREQ _0x39
-	CPI  R26,LOW(0x63)
-	BRNE _0x38
-_0x39:
-; 0000 00DE     {
-; 0000 00DF         unit[index]=rxdata;
-	CALL SUBOPT_0x0
-; 0000 00E0         index++;
-; 0000 00E1     }
-; 0000 00E2     else if(rxdata=='0' || rxdata=='1' || rxdata=='2')
-	RJMP _0x3B
-_0x38:
-	LDS  R26,_rxdata
-	CPI  R26,LOW(0x30)
-	BREQ _0x3D
-	CPI  R26,LOW(0x31)
-	BREQ _0x3D
-	CPI  R26,LOW(0x32)
-	BRNE _0x3C
-_0x3D:
-; 0000 00E3     {
-; 0000 00E4         unit[index]=rxdata;
-	CALL SUBOPT_0x0
-; 0000 00E5         index++;
-; 0000 00E6         if(index==3)
-	LDS  R26,_index
-	CPI  R26,LOW(0x3)
-	BRNE _0x3F
-; 0000 00E7         {
-; 0000 00E8             index=0;
-	LDI  R30,LOW(0)
-	STS  _index,R30
-; 0000 00E9             switch(unit[0])
-	LDS  R30,_unit
+; 0000 00D5     switch (rxdata)
 	LDI  R31,0
-; 0000 00EA             {
-; 0000 00EB                 case 'a' :
+; 0000 00D6     {
+; 0000 00D7         case 'x':
+	CPI  R30,LOW(0x78)
+	LDI  R26,HIGH(0x78)
+	CPC  R31,R26
+	BRNE _0x27
+; 0000 00D8             m0_t;
+	IN   R30,0x1B
+	LDI  R26,LOW(1)
+	EOR  R30,R26
+	OUT  0x1B,R30
+; 0000 00D9             break;
+	RJMP _0x26
+; 0000 00DA         case 'y':
+_0x27:
+	CPI  R30,LOW(0x79)
+	LDI  R26,HIGH(0x79)
+	CPC  R31,R26
+	BRNE _0x28
+; 0000 00DB             m3_t;
+	IN   R30,0x1B
+	LDI  R26,LOW(8)
+	EOR  R30,R26
+	OUT  0x1B,R30
+; 0000 00DC             break;
+	RJMP _0x26
+; 0000 00DD         case 'z':
+_0x28:
+	CPI  R30,LOW(0x7A)
+	LDI  R26,HIGH(0x7A)
+	CPC  R31,R26
+	BRNE _0x29
+; 0000 00DE             buzzer_t;
+	IN   R30,0x1B
+	LDI  R26,LOW(16)
+	EOR  R30,R26
+	OUT  0x1B,R30
+; 0000 00DF             break;
+	RJMP _0x26
+; 0000 00E0         case 's':
+_0x29:
+	CPI  R30,LOW(0x73)
+	LDI  R26,HIGH(0x73)
+	CPC  R31,R26
+	BRNE _0x2A
+; 0000 00E1             init();
+	RCALL _init
+; 0000 00E2             string("1");
+	__POINTW2MN _0x2B,0
+	RJMP _0x47
+; 0000 00E3             break;
+; 0000 00E4         case 'e':
+_0x2A:
+	CPI  R30,LOW(0x65)
+	LDI  R26,HIGH(0x65)
+	CPC  R31,R26
+	BRNE _0x2C
+; 0000 00E5             string("5");
+	__POINTW2MN _0x2B,2
+	RCALL _string
+; 0000 00E6             start=1;
+	LDI  R30,LOW(1)
+	STS  _start,R30
+; 0000 00E7             break;
+	RJMP _0x26
+; 0000 00E8         case 'a':
+_0x2C:
 	CPI  R30,LOW(0x61)
 	LDI  R26,HIGH(0x61)
 	CPC  R31,R26
-	BRNE _0x43
-; 0000 00EC                     pill0[1]=str2int(unit[1]);
-	CALL SUBOPT_0x1
-	__PUTB1MN _pill0,1
-; 0000 00ED                     pill0[2]=str2int(unit[2]);
-	CALL SUBOPT_0x2
-	__PUTB1MN _pill0,2
-; 0000 00EE                     break;
-	RJMP _0x42
-; 0000 00EF                 case 'b' :
-_0x43:
+	BREQ _0x2E
+; 0000 00E9         case 'b':
 	CPI  R30,LOW(0x62)
 	LDI  R26,HIGH(0x62)
 	CPC  R31,R26
-	BRNE _0x44
-; 0000 00F0                     pill1[1]=str2int(unit[1]);
-	CALL SUBOPT_0x1
-	__PUTB1MN _pill1,1
-; 0000 00F1                     pill1[2]=str2int(unit[2]);
-	CALL SUBOPT_0x2
-	__PUTB1MN _pill1,2
-; 0000 00F2                     break;
-	RJMP _0x42
-; 0000 00F3                 case 'c':
-_0x44:
+	BRNE _0x2F
+_0x2E:
+; 0000 00EA         case 'c':
+	RJMP _0x30
+_0x2F:
 	CPI  R30,LOW(0x63)
 	LDI  R26,HIGH(0x63)
 	CPC  R31,R26
-	BRNE _0x42
-; 0000 00F4                     pill2[1]=str2int(unit[1]);
+	BRNE _0x31
+_0x30:
+; 0000 00EB             unit[index]=rxdata;
 	CALL SUBOPT_0x1
-	__PUTB1MN _pill2,1
-; 0000 00F5                     pill2[2]=str2int(unit[2]);
-	CALL SUBOPT_0x2
-	__PUTB1MN _pill2,2
-; 0000 00F6                     break;
-; 0000 00F7             }
-_0x42:
-; 0000 00F8         }
-; 0000 00F9     }
-_0x3F:
-; 0000 00FA 
-; 0000 00FB }
-_0x3C:
-_0x3B:
-_0x37:
+; 0000 00EC             index++;
+; 0000 00ED             string("2");
+	__POINTW2MN _0x2B,4
+	RJMP _0x47
+; 0000 00EE             break;
+; 0000 00EF         case '0':
+_0x31:
+	CPI  R30,LOW(0x30)
+	LDI  R26,HIGH(0x30)
+	CPC  R31,R26
+	BREQ _0x33
+; 0000 00F0         case '1':
+	CPI  R30,LOW(0x31)
+	LDI  R26,HIGH(0x31)
+	CPC  R31,R26
+	BRNE _0x34
+_0x33:
+; 0000 00F1         case '2':
+	RJMP _0x35
+_0x34:
+	CPI  R30,LOW(0x32)
+	LDI  R26,HIGH(0x32)
+	CPC  R31,R26
+	BRNE _0x36
 _0x35:
+; 0000 00F2         case '3':
+	RJMP _0x37
+_0x36:
+	CPI  R30,LOW(0x33)
+	LDI  R26,HIGH(0x33)
+	CPC  R31,R26
+	BRNE _0x26
+_0x37:
+; 0000 00F3             unit[index]=rxdata;
+	CALL SUBOPT_0x1
+; 0000 00F4             index++;
+; 0000 00F5             string("3");
+	__POINTW2MN _0x2B,6
+	RCALL _string
+; 0000 00F6             if(index==3)
+	LDS  R26,_index
+	CPI  R26,LOW(0x3)
+	BRNE _0x39
+; 0000 00F7             {
+; 0000 00F8                 index=0;
+	LDI  R30,LOW(0)
+	STS  _index,R30
+; 0000 00F9                 switch(unit[0])
+	LDS  R30,_unit
+	LDI  R31,0
+; 0000 00FA                 {
+; 0000 00FB                     case 'a' :
+	CPI  R30,LOW(0x61)
+	LDI  R26,HIGH(0x61)
+	CPC  R31,R26
+	BRNE _0x3D
+; 0000 00FC                         pill0[1]=str2int(unit[1]);
+	CALL SUBOPT_0x2
+	__PUTB1MN _pill0,1
+; 0000 00FD                         pill0[2]=str2int(unit[2]);
+	CALL SUBOPT_0x3
+	__PUTB1MN _pill0,2
+; 0000 00FE                         break;
+	RJMP _0x3C
+; 0000 00FF                     case 'b' :
+_0x3D:
+	CPI  R30,LOW(0x62)
+	LDI  R26,HIGH(0x62)
+	CPC  R31,R26
+	BRNE _0x3E
+; 0000 0100                         pill1[1]=str2int(unit[1]);
+	CALL SUBOPT_0x2
+	__PUTB1MN _pill1,1
+; 0000 0101                         pill1[2]=str2int(unit[2]);
+	CALL SUBOPT_0x3
+	__PUTB1MN _pill1,2
+; 0000 0102                         break;
+	RJMP _0x3C
+; 0000 0103                     case 'c':
+_0x3E:
+	CPI  R30,LOW(0x63)
+	LDI  R26,HIGH(0x63)
+	CPC  R31,R26
+	BRNE _0x3C
+; 0000 0104                         pill2[1]=str2int(unit[1]);
+	CALL SUBOPT_0x2
+	__PUTB1MN _pill2,1
+; 0000 0105                         pill2[2]=str2int(unit[2]);
+	CALL SUBOPT_0x3
+	__PUTB1MN _pill2,2
+; 0000 0106                         break;
+; 0000 0107                 }
+_0x3C:
+; 0000 0108                 string("4");
+	__POINTW2MN _0x2B,8
+_0x47:
+	RCALL _string
+; 0000 0109              }
+; 0000 010A              break;
+_0x39:
+; 0000 010B     }
+_0x26:
+; 0000 010C }
 	LD   R30,Y+
 	OUT  SREG,R30
 	LD   R31,Y+
@@ -2005,76 +2080,202 @@ _0x35:
 	LD   R0,Y+
 	RETI
 ; .FEND
+
+	.DSEG
+_0x2B:
+	.BYTE 0xA
 ;
-;interrupt [USART0_DRE] void usart0_dre(void)  //송신하고 나서 송신 금지.
-; 0000 00FE {
+;interrupt [TIM1_COMPA] void timer1_compa_isr(void)
+; 0000 010F {
+
+	.CSEG
+_timer1_compa_isr:
+; .FSTART _timer1_compa_isr
+	ST   -Y,R30
+	ST   -Y,R31
+	IN   R30,SREG
+	ST   -Y,R30
+; 0000 0110     step1++;
+	MOVW R30,R12
+	ADIW R30,1
+	MOVW R12,R30
+; 0000 0111     if(step1>=ONE)
+	__CPWRR 12,13,8,9
+	BRLO _0x40
+; 0000 0112     {
+; 0000 0113         m0_off;
+	SBI  0x1B,0
+; 0000 0114         m1_off;
+	SBI  0x1B,1
+; 0000 0115         m2_off;
+	SBI  0x1B,2
+; 0000 0116         g1_off; //disable ocie1a
+	IN   R30,0x37
+	ANDI R30,0xEF
+	OUT  0x37,R30
+; 0000 0117         step1=0;
+	CLR  R12
+	CLR  R13
+; 0000 0118     }
+; 0000 0119 }
+_0x40:
+	LD   R30,Y+
+	OUT  SREG,R30
+	LD   R31,Y+
+	LD   R30,Y+
+	RETI
+; .FEND
+;interrupt [TIM1_COMPB] void timer1_compb_isr(void)
+; 0000 011B {
+_timer1_compb_isr:
+; .FSTART _timer1_compb_isr
+	ST   -Y,R26
+	ST   -Y,R27
+	ST   -Y,R30
+	ST   -Y,R31
+	IN   R30,SREG
+	ST   -Y,R30
+; 0000 011C     step2++;
+	LDI  R26,LOW(_step2)
+	LDI  R27,HIGH(_step2)
+	LD   R30,X+
+	LD   R31,X+
+	ADIW R30,1
+	ST   -X,R31
+	ST   -X,R30
+; 0000 011D     if(step2>=target)
+	LDS  R30,_target
+	LDS  R31,_target+1
+	LDS  R26,_step2
+	LDS  R27,_step2+1
+	CP   R26,R30
+	CPC  R27,R31
+	BRLO _0x41
+; 0000 011E     {
+; 0000 011F         m3_off;
+	SBI  0x1B,3
+; 0000 0120         g2_off; //disable ocie1b
+	IN   R30,0x37
+	ANDI R30,0XF7
+	OUT  0x37,R30
+; 0000 0121         position+=step2;
+	LDS  R30,_step2
+	LDS  R31,_step2+1
+	LDS  R26,_position
+	LDS  R27,_position+1
+	ADD  R30,R26
+	ADC  R31,R27
+	STS  _position,R30
+	STS  _position+1,R31
+; 0000 0122         step2=0;
+	LDI  R30,LOW(0)
+	STS  _step2,R30
+	STS  _step2+1,R30
+; 0000 0123     }
+; 0000 0124 }
+_0x41:
+	LD   R30,Y+
+	OUT  SREG,R30
+	LD   R31,Y+
+	LD   R30,Y+
+	LD   R27,Y+
+	LD   R26,Y+
+	RETI
+; .FEND
+;
+;interrupt [USART0_DRE] void usart0_dre(void)
+; 0000 0127 {
 _usart0_dre:
 ; .FSTART _usart0_dre
 	ST   -Y,R30
-; 0000 00FF     UDR0=txdata;
+; 0000 0128     UDR0=txdata;
 	LDS  R30,_txdata
 	OUT  0xC,R30
-; 0000 0100     UCSR0B &= 0xDF; // UDRE = 0 USCR0B = 0b10011000
+; 0000 0129     UCSR0B &= 0xDF; // UDRE = 0 USCR0B = 0b10011000
 	CBI  0xA,5
-; 0000 0101 }
+; 0000 012A }
 	LD   R30,Y+
 	RETI
 ; .FEND
 ;
 ;
+;/*
+;
+;    M        STEP    EN      DIR     TIM
+;    0        PB5     PA0     PB3     OC1a
+;    1        PB5     PA1     PB3     OC1a
+;    2        PB5     PA2     PB3     OC1a
+;    3        PB6     PA3     PB4     OC1b
+;
+;
+;*/
 ;
 ;void main(void)
-; 0000 0106 {
+; 0000 0139 {
 _main:
 ; .FSTART _main
-; 0000 0107     DDRE=0b10000010; //7: buzzer 1:txd0 0:rxd0
-	LDI  R30,LOW(130)
+; 0000 013A     DDRE=0b00000010; // 1:txd0 0:rxd0
+	LDI  R30,LOW(2)
 	OUT  0x2,R30
-; 0000 0108     DDRB=0b01111000;   //3,4: dir 5,6: step
-	LDI  R30,LOW(120)
+; 0000 013B     DDRB=0xFF;   //3,4: dir 5,6: step
+	LDI  R30,LOW(255)
 	OUT  0x17,R30
-; 0000 0109     DDRA=0x0F;
-	LDI  R30,LOW(15)
+; 0000 013C     DDRA=0x1F;
+	LDI  R30,LOW(31)
 	OUT  0x1A,R30
-; 0000 010A     SREG=0x80;
+; 0000 013D     SREG=0x80;
 	LDI  R30,LOW(128)
 	OUT  0x3F,R30
-; 0000 010B     TCCR1A=0x50; //TIMER1a, TIMER1b on Timer1c off
+; 0000 013E     TCCR1A=0x50; //TIMER1a, TIMER1b on Timer1c off
 	LDI  R30,LOW(80)
 	OUT  0x2F,R30
-; 0000 010C     TCCR1B=0x0A;
+; 0000 013F     TCCR1B=0x0A;
 	LDI  R30,LOW(10)
 	OUT  0x2E,R30
-; 0000 010D     OCR1AL=0x00;
+; 0000 0140     TCCR1C=0x00;
 	LDI  R30,LOW(0)
+	STS  122,R30
+; 0000 0141     OCR1AL=0x00;
 	OUT  0x2A,R30
-; 0000 010E     OCR1AH=0x00;
+; 0000 0142     OCR1AH=0x00;
 	OUT  0x2B,R30
-; 0000 010F     OCR1BL=0x00;
+; 0000 0143     OCR1BL=0x00;
 	OUT  0x28,R30
-; 0000 0110     OCR1BH=0x00;
+; 0000 0144     OCR1BH=0x00;
 	OUT  0x29,R30
-; 0000 0111     TCNT1H=0x00;
+; 0000 0145     OCR1CH=0x00;
+	STS  121,R30
+; 0000 0146     OCR1CL=0x00;
+	STS  120,R30
+; 0000 0147     TCNT1H=0x00;
 	OUT  0x2D,R30
-; 0000 0112     TCNT1L=0x00;
+; 0000 0148     TCNT1L=0x00;
 	OUT  0x2C,R30
-; 0000 0113     TIMSK=0x00;  //0001 1000 OCIE1A, OCIE1B interrupt enable
+; 0000 0149     TIMSK=0x00;  //0001 1000 OCIE1A, OCIE1B interrupt enable
 	OUT  0x37,R30
-; 0000 0114 
-; 0000 0115     init();
+; 0000 014A     ETIMSK=0x00;
+	STS  125,R30
+; 0000 014B 
+; 0000 014C     init();
 	RCALL _init
-; 0000 0116     BTinit();
+; 0000 014D     BTinit();
 	RCALL _BTinit
-; 0000 0117     vel_f5();
+; 0000 014E     vel_f5();
 	RCALL _vel_f5
-; 0000 0118     while(1){
+; 0000 014F 
+; 0000 0150     while(1){
+_0x42:
+; 0000 0151         if(start==1) run();
+	LDS  R26,_start
+	CPI  R26,LOW(0x1)
+	BRNE _0x45
+	RCALL _run
+; 0000 0152     }
+_0x45:
+	RJMP _0x42
+; 0000 0153 }
 _0x46:
-; 0000 0119 
-; 0000 011A     }
 	RJMP _0x46
-; 0000 011B }
-_0x49:
-	RJMP _0x49
 ; .FEND
 	#ifndef __SLEEP_DEFINED__
 	#define __SLEEP_DEFINED__
@@ -2097,14 +2298,14 @@ _0x49:
 	.DSEG
 _step2:
 	.BYTE 0x2
+_start:
+	.BYTE 0x1
 _target:
 	.BYTE 0x2
 _position:
 	.BYTE 0x2
-_fin:
-	.BYTE 0x1
 _txdata:
-	.BYTE 0x1
+	.BYTE 0x2
 _rxdata:
 	.BYTE 0x1
 _pill0:
@@ -2117,14 +2318,24 @@ _unit:
 	.BYTE 0x3
 _index:
 	.BYTE 0x1
-_g1:
+_sp1:
 	.BYTE 0x2
-_g2:
+_sp2:
 	.BYTE 0x2
 
 	.CSEG
-;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:8 WORDS
+;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:1 WORDS
 SUBOPT_0x0:
+	MOVW R30,R16
+	LDD  R26,Y+2
+	LDD  R27,Y+2+1
+	ADD  R26,R30
+	ADC  R27,R31
+	LD   R30,X
+	RET
+
+;OPTIMIZER ADDED SUBROUTINE, CALLED 2 TIMES, CODE SIZE REDUCTION:8 WORDS
+SUBOPT_0x1:
 	LDS  R30,_index
 	LDI  R31,0
 	SUBI R30,LOW(-_unit)
@@ -2137,12 +2348,12 @@ SUBOPT_0x0:
 	RET
 
 ;OPTIMIZER ADDED SUBROUTINE, CALLED 3 TIMES, CODE SIZE REDUCTION:1 WORDS
-SUBOPT_0x1:
+SUBOPT_0x2:
 	__GETB2MN _unit,1
 	JMP  _str2int
 
 ;OPTIMIZER ADDED SUBROUTINE, CALLED 3 TIMES, CODE SIZE REDUCTION:1 WORDS
-SUBOPT_0x2:
+SUBOPT_0x3:
 	__GETB2MN _unit,2
 	JMP  _str2int
 
@@ -2158,6 +2369,21 @@ __delay_ms0:
 	brne __delay_ms0
 __delay_ms1:
 	ret
+
+__LSRW2:
+	LSR  R31
+	ROR  R30
+	LSR  R31
+	ROR  R30
+	RET
+
+__MULB1W2U:
+	MOV  R22,R30
+	MUL  R22,R26
+	MOVW R30,R0
+	MUL  R22,R27
+	ADD  R31,R0
+	RET
 
 ;END OF CODE MARKER
 __END_OF_CODE:
