@@ -30,16 +30,15 @@
 #define buzzer_off  PORTA&=0xEF //PORTA4=0      1110 1111
 #define buzzer_t PORTA^=0x10
 
-unsigned int PAUSE=20000; //디스펜서까지의 거리
-unsigned int ENDLINE=48000; //끝까지의 스텝수 저장 상수
-unsigned int ONE=6000; //한 알  스텝 수 저장 상수
-unsigned int NEXT=2000; //약통의 다음칸으로 이동할 스텝수 저장 상수
+unsigned int PAUSE=11000; //디스펜서까지의 거리
+unsigned int ENDLINE=40000; //끝까지의 스텝수 저장 상수
+unsigned int ONE=3600; //한 알  스텝 수 저장 상수
+unsigned int NEXT=2600; //약통의 다음칸으로 이동할 스텝수 저장 상수
 
 unsigned int step1=0; //디스펜서의 현재 스텝 저장 변수
 unsigned int step2=0; //이동모터의 현재 스텝 저장 변수
 
 unsigned char start=0;
-unsigned int where2=0;
 unsigned int target=0;
 unsigned int position=0; //현재 위치
 
@@ -113,8 +112,6 @@ void vel_f5()
 
 void wait(unsigned int t)
 {
-    t*=3;
-    t/=4;
     delay_ms(t);
 }
 void motor0()
